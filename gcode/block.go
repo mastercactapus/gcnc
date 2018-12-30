@@ -2,10 +2,18 @@ package gcode
 
 import (
 	"errors"
+	"strings"
 )
 
 type Block []Word
 
+func (b Block) String() string {
+	var str strings.Builder
+	for _, g := range b {
+		str.WriteString(g.String())
+	}
+	return str.String()
+}
 func (b Block) Arg(w byte) (bool, float64) {
 	for _, g := range b {
 		if g.W == w {

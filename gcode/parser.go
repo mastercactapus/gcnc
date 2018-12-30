@@ -9,10 +9,6 @@ import (
 	"strings"
 )
 
-type Reader interface {
-	Next() (Block, error)
-}
-
 type Parser struct{ br *bufio.Reader }
 
 func NewParser(r io.Reader) *Parser {
@@ -28,7 +24,7 @@ var (
 	rxSplit = regexp.MustCompile(`[A-Z][0-9.\-]+`)
 )
 
-func (p *Parser) Next() (ln Block, err error) {
+func (p *Parser) Read() (ln Block, err error) {
 	for {
 		s, err := p.br.ReadString('\n')
 		if err == io.EOF && s != "" {

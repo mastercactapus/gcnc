@@ -91,7 +91,7 @@ func (l MeshLeveler) Offset(x, y float64) float64 {
 	return pl.Z(x, y)
 }
 
-func (l *MeshLeveler) Next() (gcode.Block, error) {
+func (l *MeshLeveler) Read() (gcode.Block, error) {
 	b, err := l.next()
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func (l *MeshLeveler) next() (gcode.Block, error) {
 		l.bufN++
 		return l.buf[l.bufN-1], nil
 	}
-	b, err := l.gr.Next()
+	b, err := l.gr.Read()
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,7 @@ func Parse(data string) ([]Block, error) {
 	r := NewParser(bytes.NewBufferString(data))
 	var b []Block
 	for {
-		bl, err := r.Next()
+		bl, err := r.Read()
 		if err == io.EOF {
 			break
 		}
