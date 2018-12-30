@@ -174,11 +174,11 @@ func (l *MeshLeveler) next() (gcode.Block, error) {
 		bl.SetArg('Y', distPoint.Y)
 		bl.SetArg('Z', distPoint.Z)
 
-		for i := 0; i < n; i++ {
+		for i := 1; i <= n; i++ {
 			l.buf = append(l.buf, bl)
 		}
 	} else {
-		for i := 0; i < n; i++ {
+		for i := 1; i <= n; i++ {
 			bl := b.Clone()
 			bl.SetArg('X', oldPos.X+distPoint.X*float64(i))
 			bl.SetArg('Y', oldPos.Y+distPoint.Y*float64(i))
