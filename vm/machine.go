@@ -45,10 +45,10 @@ func (m Machine) WPos() coord.Point {
 func (m Machine) MPos() coord.Point {
 	return m.pos
 }
-func (m Machine) SetMPos(p coord.Point) {
+func (m *Machine) SetMPos(p coord.Point) {
 	m.pos = p
 }
-func (m Machine) SetWCO(p coord.Point) {
+func (m *Machine) SetWCO(p coord.Point) {
 	m.wco = p
 }
 func (m Machine) WCO() coord.Point {

@@ -1,193 +1,77 @@
 package meshlevel
 
 import (
+	"errors"
 	"math"
 
+	"github.com/fogleman/delaunay"
 	"github.com/mastercactapus/gcnc/coord"
-	"github.com/mastercactapus/gcnc/gcode"
-	"github.com/mastercactapus/gcnc/vm"
 )
 
-type MeshLeveler struct {
-	minX, maxX, minY, maxY float64
-
-	offsets     []coord.Point
-	granularity float64
-
-	buf  []gcode.Block
-	bufN int
-
-	splitVM *vm.Machine
-	levelVM *vm.Machine
-
-	gr gcode.Reader
-}
-type Config struct {
-	Offsets     []coord.Point
-	Granularity float64
-
-	MPos, WCO coord.Point
-
-	Reader gcode.Reader
+type Mesh struct {
+	minX, minY, maxX, maxY float64
+	triangles              []coord.Triangle
 }
 
-func New(cfg Config) *MeshLeveler {
-	l := &MeshLeveler{
-		offsets: cfg.Offsets,
-
-		minX: cfg.Offsets[0].X,
-		maxX: cfg.Offsets[0].X,
-		minY: cfg.Offsets[0].Y,
-		maxY: cfg.Offsets[0].Y,
-
-		splitVM: vm.NewMachine(),
-		levelVM: vm.NewMachine(),
-
-		granularity: cfg.Granularity,
-		gr:          cfg.Reader,
-	}
-	l.splitVM.SetMPos(cfg.MPos)
-	l.levelVM.SetMPos(cfg.MPos)
-
-	l.splitVM.SetWCO(cfg.WCO)
-	l.levelVM.SetWCO(cfg.WCO)
-
-	for _, p := range cfg.Offsets[1:] {
-		if p.X < l.minX {
-			l.minX = p.X
-		}
-		if p.X > l.maxX {
-			l.maxX = p.X
-		}
-		if p.Y < l.minY {
-			l.minY = p.Y
-		}
-		if p.Y > l.maxY {
-			l.maxY = p.Y
-		}
+func NewMesh(points []coord.Point) (*Mesh, error) {
+	if len(points) < 3 {
+		return nil, errors.New("need at least 3 points to create a mesh")
 	}
 
-	return l
+	points2d := make([]delaunay.Point, len(points))
+	m := make(map[delaunay.Point]coord.Point, len(points))
+
+	mesh := &Mesh{
+		minX: points[0].X,
+		minY: points[0].Y,
+		maxX: points[0].X,
+		maxY: points[0].Y,
+	}
+	var d delaunay.Point
+	for i, p := range points {
+		mesh.minX = math.Min(mesh.minX, p.X)
+		mesh.minY = math.Min(mesh.minY, p.Y)
+		mesh.maxX = math.Max(mesh.maxX, p.X)
+		mesh.maxY = math.Max(mesh.maxY, p.Y)
+
+		d.X = p.X
+		d.Y = p.Y
+		m[d] = p
+		points2d[i] = d
+	}
+	mesh.minX -= coord.Epsilon
+	mesh.minY -= coord.Epsilon
+	mesh.maxX += coord.Epsilon
+	mesh.maxY += coord.Epsilon
+
+	tri, err := delaunay.Triangulate(points2d)
+	if err != nil {
+		return nil, err
+	}
+
+	mesh.triangles = make([]coord.Triangle, 0, len(tri.Triangles)/3)
+
+	for i := 0; i < len(tri.Triangles); i += 3 {
+		mesh.triangles = append(mesh.triangles, coord.Triangle{
+			A: m[tri.Points[tri.Triangles[i]]],
+			B: m[tri.Points[tri.Triangles[i+1]]],
+			C: m[tri.Points[tri.Triangles[i+2]]],
+		})
+	}
+
+	return mesh, nil
 }
 
-func (l MeshLeveler) Offset(x, y float64) float64 {
-	if x < l.minX || x > l.maxX {
-		return 0
+func (m Mesh) OffsetZ(x, y float64) (bool, float64) {
+	if x < m.minX || m.maxX < x || y < m.minY || m.maxY < y {
+		return false, 0
 	}
-	if y < l.minY || y > l.maxY {
-		return 0
-	}
-
-	a, b, c := l.offsets[0], l.offsets[1], l.offsets[2]
-	dA, dB, dC := a.DistanceXY(x, y), b.DistanceXY(x, y), c.DistanceXY(x, y)
-
-	for _, p := range l.offsets {
-		d := p.DistanceXY(x, y)
-		if d < dA {
-			a = p
-			dA = d
+	for _, t := range m.triangles {
+		if !t.ContainsXY(x, y) {
 			continue
 		}
-		if d < dB {
-			b = p
-			dB = d
-			continue
-		}
-		if d < dC {
-			b = p
-			dC = d
-			continue
-		}
+		return true, t.Z(x, y)
 	}
 
-	pl := coord.Plane{a, b, c}
-	return pl.Z(x, y)
-}
-
-func (l *MeshLeveler) Read() (gcode.Block, error) {
-	b, err := l.next()
-	if err != nil {
-		return nil, err
-	}
-
-	oldPos := l.levelVM.MPos()
-	err = l.levelVM.Run(b)
-	if err != nil {
-		return nil, err
-	}
-	newPos := l.levelVM.MPos()
-	if oldPos.Equal(newPos) {
-		return b, nil
-	}
-
-	oldOffset := l.Offset(oldPos.X, oldPos.Y)
-	newOffset := l.Offset(newPos.X, newPos.Y)
-	if oldOffset == newOffset {
-		return b, nil
-	}
-
-	b = b.Clone()
-	ok, oldZ := b.Arg('Z')
-	if !l.levelVM.RelativeMotion() && !ok {
-		oldZ = oldPos.Z
-	}
-
-	if !ok {
-		b = append(b, gcode.Word{W: 'Z', Arg: newOffset - oldOffset})
-	} else {
-		b.SetArg('Z', oldZ+(newOffset-oldOffset))
-	}
-
-	return b, nil
-}
-
-func (l *MeshLeveler) next() (gcode.Block, error) {
-	if len(l.buf)-l.bufN > 0 {
-		l.bufN++
-		return l.buf[l.bufN-1], nil
-	}
-	b, err := l.gr.Read()
-	if err != nil {
-		return nil, err
-	}
-
-	oldPos := l.splitVM.MPos()
-	err = l.splitVM.Run(b)
-	if err != nil {
-		return nil, err
-	}
-	newPos := l.splitVM.MPos()
-	if oldPos.Equal(newPos) {
-		return b, nil
-	}
-	dist := oldPos.DistanceXY(newPos.X, newPos.Y)
-	if dist <= l.granularity {
-		return b, nil
-	}
-
-	n := int(math.Ceil(dist / l.granularity))
-	distPoint := newPos.Sub(oldPos).Div(float64(n))
-
-	if l.splitVM.RelativeMotion() {
-		bl := b.Clone()
-		bl.SetArg('X', distPoint.X)
-		bl.SetArg('Y', distPoint.Y)
-		bl.SetArg('Z', distPoint.Z)
-
-		for i := 1; i <= n; i++ {
-			l.buf = append(l.buf, bl)
-		}
-	} else {
-		for i := 1; i <= n; i++ {
-			bl := b.Clone()
-			bl.SetArg('X', oldPos.X+distPoint.X*float64(i))
-			bl.SetArg('Y', oldPos.Y+distPoint.Y*float64(i))
-			bl.SetArg('Z', oldPos.Z+distPoint.Z*float64(i))
-
-			l.buf = append(l.buf, bl)
-		}
-	}
-
-	l.bufN = 1
-	return l.buf[0], nil
+	return false, 0
 }

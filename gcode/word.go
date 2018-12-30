@@ -31,5 +31,5 @@ func formatFloat(f float64, prec int) string {
 }
 
 func (w Word) String() string {
-	return string(w.W) + formatFloat(w.Arg, 3)
+	return string(w.W) + formatFloat(w.Arg, 5)
 }

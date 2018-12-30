@@ -14,7 +14,7 @@ func TestPoint_Add(t *testing.T) {
 }
 
 func TestPoint_DistanceXY(t *testing.T) {
-	dist := Point{X: 1, Y: 2, Z: 3}.DistanceXY(Point{X: 4, Y: 5, Z: 6})
+	dist := Point{X: 1, Y: 2, Z: 3}.DistanceXY(4,5)
 	assert.InEpsilon(t, 4.24264, dist, .01)
 }
 
