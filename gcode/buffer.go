@@ -14,7 +14,7 @@ type Buffer struct {
 var _ io.Reader = &Buffer{}
 
 func NewBuffer(r Reader) *Buffer {
-	return &Buffer{gr: r}
+	return &Buffer{gr: r, buf: new(bytes.Buffer)}
 }
 func (b *Buffer) Buffered() []byte { return b.buf.Bytes() }
 
