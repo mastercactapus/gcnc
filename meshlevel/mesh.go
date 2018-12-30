@@ -22,24 +22,37 @@ type MeshLeveler struct {
 
 	gr gcode.Reader
 }
+type Config struct {
+	Offsets     []coord.Point
+	Granularity float64
 
-func New(offsets []coord.Point, granularity float64, gr gcode.Reader) *MeshLeveler {
+	MPos, WCO coord.Point
+
+	Reader gcode.Reader
+}
+
+func New(cfg Config) *MeshLeveler {
 	l := &MeshLeveler{
-		offsets: offsets,
+		offsets: cfg.Offsets,
 
-		minX: offsets[0].X,
-		maxX: offsets[0].X,
-		minY: offsets[0].Y,
-		maxY: offsets[0].Y,
+		minX: cfg.Offsets[0].X,
+		maxX: cfg.Offsets[0].X,
+		minY: cfg.Offsets[0].Y,
+		maxY: cfg.Offsets[0].Y,
 
 		splitVM: vm.NewMachine(),
 		levelVM: vm.NewMachine(),
 
-		granularity: granularity,
-		gr:          gr,
+		granularity: cfg.Granularity,
+		gr:          cfg.Reader,
 	}
+	l.splitVM.SetMPos(cfg.MPos)
+	l.levelVM.SetMPos(cfg.MPos)
 
-	for _, p := range offsets[1:] {
+	l.splitVM.SetWCO(cfg.WCO)
+	l.levelVM.SetWCO(cfg.WCO)
+
+	for _, p := range cfg.Offsets[1:] {
 		if p.X < l.minX {
 			l.minX = p.X
 		}
