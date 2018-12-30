@@ -18,7 +18,7 @@ func NewBuffer(r Reader) *Buffer {
 }
 func (b *Buffer) Buffered() []byte { return b.buf.Bytes() }
 
-func (b *Buffer) Read(p []byte) (n int, err error) {
+func (b *Buffer) Read(p []byte) (int, error) {
 	if b.err == io.EOF {
 		return b.buf.Read(p)
 	}
@@ -29,11 +29,11 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 	var block Block
 	for b.buf.Len() < len(p) {
 		block, b.err = b.gr.Read()
-		if err == io.EOF {
+		if b.err == io.EOF {
 			return b.buf.Read(p)
 		}
-		if err != nil {
-			return 0, err
+		if b.err != nil {
+			return 0, b.err
 		}
 		b.buf.WriteString(block.String() + "\n")
 	}
