@@ -9,7 +9,16 @@ type Point struct{ X, Y, Z float64 }
 func (p Point) Equal(b Point) bool {
 	return p.X == b.X && p.Y == b.Y && p.Z == b.Z
 }
-
+func (p Point) Cross(op Point) Point {
+	return Point{
+		p.Y*op.Z - p.Z*op.Y,
+		p.Z*op.X - p.X*op.Z,
+		p.X*op.Y - p.Y*op.X,
+	}
+}
+func (p Point) Dot(op Point) float64 {
+	return p.X*op.X + p.Y*op.Y + p.Z*op.Z
+}
 func (p Point) Mul(val float64) Point {
 	p.X *= val
 	p.Y *= val

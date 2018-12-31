@@ -1,6 +1,8 @@
 package coord
 
-import "math"
+import (
+	"math"
+)
 
 const (
 	// Epsilon is the max error when checking containment.
@@ -23,10 +25,13 @@ func (t Triangle) ContainsXY(x, y float64) bool {
 // Z will give the Z-coordinate on the plane defined by the triangle
 // where it intersects x,y.
 func (t Triangle) Z(x, y float64) float64 {
-	a := t.A.Y*(t.B.Z-t.C.Z) + t.B.Y*(t.C.Z-t.A.Z) + t.C.Y*(t.A.Z-t.B.Z)
-	b := t.A.Z*(t.B.X-t.C.X) + t.B.Z*(t.C.X-t.A.X) + t.C.Z*(t.A.X-t.B.X)
-	c := t.A.X*(t.B.Y-t.C.Y) + t.B.X*(t.C.Y-t.A.Y) + t.C.X*(t.A.Y-t.B.Y)
-	d := -t.A.X*(t.B.Y*t.C.Z-t.C.Y*t.B.Z) - t.B.X*(t.C.Y*t.A.Z-t.A.Y*t.C.Z) - t.C.X*(t.A.Y*t.B.Z-t.B.Y*t.A.Z)
+	ac := t.C.Sub(t.A)
+	ab := t.B.Sub(t.A)
+
+	cp := ac.Cross(ab)
+	a, b, c := cp.X, cp.Y, cp.Z
+
+	d := cp.Dot(t.C)
 
 	return (d - a*x - b*y) / c
 }
