@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	sse "github.com/alexandrevicenzi/go-sse"
+	"github.com/mastercactapus/gcnc/coord"
 )
 
 type api struct {
@@ -39,6 +40,8 @@ func newAPI(m Machine, dir string) *api {
 		switch req.Method {
 		case "GET":
 			fs.ServeHTTP(w, req)
+		case "OPTIONS":
+			return
 		case "PUT":
 			a.putFile(w, req)
 		case "DELETE":
@@ -51,6 +54,8 @@ func newAPI(m Machine, dir string) *api {
 	mux.HandleFunc("/api/run", a.run)
 	mux.HandleFunc("/api/probe", a.probe)
 
+	mux.HandleFunc("/api/tool/change", a.toolChange)
+
 	mux.Handle("/events/", a.sse)
 	go func() {
 		for state := range m.State() {
@@ -60,6 +65,12 @@ func newAPI(m Machine, dir string) *api {
 				continue
 			}
 			a.sse.SendMessage("/events/state", sse.SimpleMessage(string(data)))
+		}
+	}()
+
+	go func() {
+		for msg := range m.HoldMessage() {
+			a.sse.SendMessage("/events/hold", sse.SimpleMessage(msg))
 		}
 	}()
 
@@ -99,9 +110,40 @@ func (a *api) run(w http.ResponseWriter, req *http.Request) {
 		}
 		p = append(p, str+"\n")
 	}
-	err = a.m.Run(p)
+
+	grid := req.URL.Query().Get("gridLevel")
+	if grid != "" {
+		lvl, err := strconv.ParseFloat(grid, 64)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		ok, gridFile := safePath(a.dataDir, "grid.json")
+		if !ok {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		data, err := ioutil.ReadFile(gridFile)
+		if err != nil {
+			log.Println("ERROR: read grid.json:", err)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		var gridData []coord.Point
+		err = json.Unmarshal(data, &gridData)
+		if err != nil {
+			log.Println("ERROR: parse grid.json:", err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		err = a.m.RunLevel(p, lvl, gridData)
+	} else {
+		err = a.m.Run(p)
+	}
+
 	if err != nil {
-		log.Printf("ERROR: run: %+v", err)
+		log.Printf("ERROR: run: gridLevel=%s %+v", grid, err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -119,36 +161,29 @@ func (a *api) probe(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var err error
-	var opt ProbeOptions
-	opt.ZeroZAxis = req.FormValue("zeroZAxis") == "1"
-
-	parse := func(param string) (val float64) {
-		if err != nil {
-			return 0
-		}
-		val, err = strconv.ParseFloat(req.FormValue(param), 64)
-		return val
-	}
-	opt.FeedRate = parse("feedRate")
-	opt.MaxTravel = parse("maxZTravel")
-
-	grid := req.FormValue("grid") == "1"
-	var xDist, yDist float64
-	if grid {
-		xDist = parse("xDist")
-		yDist = parse("yDist")
-	}
-
+	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	var res interface{}
+	grid := req.URL.Query().Get("grid") == "1"
 	if grid {
-		res, err = a.m.ProbeGrid(opt, xDist, yDist)
+		var opt GridOptions
+		err = json.Unmarshal(data, &opt)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		res, err = a.m.ProbeGrid(opt)
 	} else {
+		var opt ProbeOptions
+		err = json.Unmarshal(data, &opt)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		res, err = a.m.ProbeZ(opt)
 	}
 

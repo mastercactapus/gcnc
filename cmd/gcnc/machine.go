@@ -6,16 +6,16 @@ import (
 
 type Machine interface {
 	Run([]string) error
-	ProbeGrid(opt ProbeOptions, xDist, yDist float64) ([]ProbeResult, error)
+	RunLevel([]string, float64, []coord.Point) error
+
+	ProbeGrid(opt GridOptions) ([]ProbeResult, error)
 	ProbeZ(ProbeOptions) (*ProbeResult, error)
+	ToolChange(ToolChangeOptions) error
 
 	State() chan MachineState
+	HoldMessage() chan string
 }
-type ProbeOptions struct {
-	ZeroZAxis bool
-	FeedRate  float64
-	MaxTravel float64
-}
+
 type ProbeResult struct {
 	coord.Point
 	Valid bool

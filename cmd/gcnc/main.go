@@ -33,6 +33,7 @@ func main() {
 
 	err = http.ListenAndServe(*addr, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
 		log.Printf("%s %s - %s", req.Method, req.URL.Path, req.RemoteAddr)
 		api.ServeHTTP(w, req)
 	}))
