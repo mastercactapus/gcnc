@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,11 +12,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mastercactapus/gcnc/machine"
-
 	sse "github.com/alexandrevicenzi/go-sse"
 	"github.com/jasonwbarnett/fileserver"
 	"github.com/mastercactapus/gcnc/coord"
+	"github.com/mastercactapus/gcnc/machine"
 )
 
 type api struct {

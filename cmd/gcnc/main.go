@@ -5,10 +5,10 @@ import (
 	"log"
 	"net/http"
 
-	serial "github.com/joushou/goserial"
 	"github.com/mastercactapus/gcnc/machine"
 	"github.com/mastercactapus/gcnc/machine/grbl"
 	"github.com/mastercactapus/gcnc/spjs"
+	serial "github.com/tarm/serial"
 )
 
 func main() {

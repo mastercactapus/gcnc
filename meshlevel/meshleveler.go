@@ -39,6 +39,9 @@ func New(cfg Config) *MeshLeveler {
 
 		offsetter: cfg.ZOffsetter,
 	}
+	if l.offsetter == nil {
+		l.offsetter = dummyOffsetter{}
+	}
 	l.splitVM.SetMPos(cfg.MPos)
 	l.levelVM.SetMPos(cfg.MPos)
 
@@ -54,12 +57,12 @@ func (l *MeshLeveler) Read() (gcode.Block, error) {
 		return nil, err
 	}
 
-	oldPos := l.levelVM.MPos()
+	oldPos := l.levelVM.WPos()
 	err = l.levelVM.Run(b)
 	if err != nil {
 		return nil, err
 	}
-	newPos := l.levelVM.MPos()
+	newPos := l.levelVM.WPos()
 	if oldPos.Equal(newPos) {
 		return b, nil
 	}
@@ -104,12 +107,12 @@ func (l *MeshLeveler) next() (gcode.Block, error) {
 		return nil, err
 	}
 
-	oldPos := l.splitVM.MPos()
+	oldPos := l.splitVM.WPos()
 	err = l.splitVM.Run(b)
 	if err != nil {
 		return nil, err
 	}
-	newPos := l.splitVM.MPos()
+	newPos := l.splitVM.WPos()
 	if oldPos.Equal(newPos) {
 		return b, nil
 	}
