@@ -5,7 +5,6 @@ import (
 
 	"github.com/mastercactapus/gcnc/coord"
 	"github.com/mastercactapus/gcnc/gcode"
-	"github.com/mastercactapus/gcnc/vm"
 )
 
 type MeshLeveler struct {
@@ -15,8 +14,8 @@ type MeshLeveler struct {
 	buf  []gcode.Block
 	bufN int
 
-	splitVM *vm.Machine
-	levelVM *vm.Machine
+	splitVM *gcode.VM
+	levelVM *gcode.VM
 
 	gr gcode.Reader
 }
@@ -32,8 +31,8 @@ type Config struct {
 func New(cfg Config) *MeshLeveler {
 	l := &MeshLeveler{
 
-		splitVM: vm.NewMachine(),
-		levelVM: vm.NewMachine(),
+		splitVM: gcode.NewVM(),
+		levelVM: gcode.NewVM(),
 
 		granularity: cfg.Granularity,
 		gr:          cfg.Reader,
