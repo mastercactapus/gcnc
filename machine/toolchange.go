@@ -28,7 +28,7 @@ func (m *Machine) ToolChange(opt ToolChangeOptions) error {
 
 	if opt.LastToolPos == nil {
 		// get current tool first
-		p, err := m.toolProbe(opt)
+		p, err := m.toolProbe(opt, false, 0)
 		if err != nil {
 			return err
 		}
@@ -49,26 +49,15 @@ func (m *Machine) ToolChange(opt ToolChangeOptions) error {
 		return err
 	}
 
-	p, err := m.toolProbe(opt)
+	lastToolWPos := opt.LastToolPos.Sub(stat.WCO)
+	p, err := m.toolProbe(opt, true, lastToolWPos.Z)
 	if err != nil {
 		return err
 	}
 
 	diff := opt.LastToolPos.Z - p.Z
 	stat.MPos.Z -= diff
-	WPos := stat.MPos.Sub(stat.WCO)
-	WPos.Z -= diff
 	log.Println("Adjusting Z-offset by:", diff)
-
-	err = m.runBlocks([]gcode.Block{
-		{
-			{W: 'G', Arg: 92},
-			{W: 'Z', Arg: WPos.Z},
-		},
-	})
-	if err != nil {
-		return err
-	}
 
 	m.hold("Probe complete, remove Z-Probe.")
 	if err != nil {
@@ -83,13 +72,19 @@ func (m *Machine) ToolChange(opt ToolChangeOptions) error {
 	return nil
 }
 
-func (m *Machine) toolProbe(opt ToolChangeOptions) (*ProbeResult, error) {
+func (m *Machine) toolProbe(opt ToolChangeOptions, zero bool, offset float64) (*ProbeResult, error) {
 	err := m.runBlocks(generateGoTo(opt.TravelHeight, opt.ProbePos))
 	if err != nil {
 		return nil, err
 	}
 
-	p, err := m.ProbeZ(ProbeOptions{Wait: true, MaxTravel: opt.MaxTravel, FeedRate: opt.FeedRate})
+	p, err := m.ProbeZ(ProbeOptions{
+		Wait:      true,
+		MaxTravel: opt.MaxTravel,
+		FeedRate:  opt.FeedRate,
+		ZeroZAxis: zero,
+		Offset:    offset,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -57,15 +57,17 @@ func (l *MeshLeveler) Read() (gcode.Block, error) {
 		return nil, err
 	}
 
-	oldPos := l.levelVM.WPos()
+	oldPos := l.levelVM.MPos()
 	err = l.levelVM.Run(b)
 	if err != nil {
 		return nil, err
 	}
-	newPos := l.levelVM.WPos()
+	newPos := l.levelVM.MPos()
 	if oldPos.Equal(newPos) {
 		return b, nil
 	}
+
+	newWPos := l.levelVM.WPos()
 
 	// get old and new offset
 	// if we don't have one (before or after)
@@ -83,24 +85,25 @@ func (l *MeshLeveler) Read() (gcode.Block, error) {
 	}
 
 	b = b.Clone()
-	ok, oldZ := b.Arg('Z')
+	ok, cmdZ := b.Arg('Z')
 	if !l.levelVM.RelativeMotion() && !ok {
-		oldZ = oldPos.Z
+		cmdZ = newWPos.Z
 	}
 
 	if !ok {
-		b = append(b, gcode.Word{W: 'Z', Arg: newOffset - oldOffset})
+		b = append(b, gcode.Word{W: 'Z', Arg: cmdZ + (newOffset - oldOffset)})
 	} else {
-		b.SetArg('Z', oldZ+(newOffset-oldOffset))
+		b.SetArg('Z', cmdZ+(newOffset-oldOffset))
 	}
 
 	return b, nil
 }
 
 func (l *MeshLeveler) next() (gcode.Block, error) {
-	if len(l.buf)-l.bufN > 0 {
-		l.bufN++
-		return l.buf[l.bufN-1], nil
+	if len(l.buf) > 0 {
+		b := l.buf[0]
+		l.buf = l.buf[1:]
+		return b.Clone(), nil
 	}
 	b, err := l.gr.Read()
 	if err != nil {
@@ -132,7 +135,7 @@ func (l *MeshLeveler) next() (gcode.Block, error) {
 		bl.SetArg('Z', distPoint.Z)
 
 		for i := 1; i <= n; i++ {
-			l.buf = append(l.buf, bl)
+			l.buf = append(l.buf, bl.Clone())
 		}
 	} else {
 		for i := 1; i <= n; i++ {
@@ -145,6 +148,7 @@ func (l *MeshLeveler) next() (gcode.Block, error) {
 		}
 	}
 
-	l.bufN = 1
-	return l.buf[0], nil
+	b = l.buf[0]
+	l.buf = l.buf[1:]
+	return b, nil
 }

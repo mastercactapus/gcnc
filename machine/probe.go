@@ -15,6 +15,10 @@ type ProbeResult struct {
 // ProbeOptions configure a straight z-probe operation.
 type ProbeOptions struct {
 	ZeroZAxis bool
+
+	// Offset is the offset to use when ZeroZAxis is set.
+	Offset float64
+
 	FeedRate  float64
 	MaxTravel float64
 
@@ -61,7 +65,7 @@ func (opt ProbeOptions) probeCommand(zero bool, lift float64) []gcode.Block {
 	if zero {
 		b = append(b, gcode.Block{
 			{W: 'G', Arg: 92},
-			{W: 'Z', Arg: 0},
+			{W: 'Z', Arg: opt.Offset},
 		})
 	}
 	b = append(b,
