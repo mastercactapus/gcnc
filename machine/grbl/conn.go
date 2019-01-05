@@ -4,13 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
 )
 
-const bufferSize = 128
+const bufferSize = 127
 
 // ErrGrblReset will be returned from write methods if a reset is encountered
 // before all commands are run.
