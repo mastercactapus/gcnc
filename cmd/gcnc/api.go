@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -99,21 +100,7 @@ func (a *api) run(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	data, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		return
-	}
-
-	parts := strings.Split(string(data), "\n")
-	p := parts[:0]
-	for _, str := range parts {
-		str = strings.TrimSpace(str)
-		if str == "" {
-			continue
-		}
-		p = append(p, str+"\n")
-	}
-
+	var err error
 	grid := req.URL.Query().Get("gridLevel")
 	if grid != "" {
 		lvl, err := strconv.ParseFloat(grid, 64)
@@ -140,9 +127,9 @@ func (a *api) run(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		err = a.m.RunLevel(p, lvl, gridData)
+		_, err = a.m.ReadFromLevel(req.Body, lvl, gridData)
 	} else {
-		err = a.m.Run(p)
+		_, err = a.m.ReadFrom(req.Body)
 	}
 
 	if err != nil {

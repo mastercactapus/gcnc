@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -111,7 +112,7 @@ func (c *Conn) waitForLine(id int64) (err error) {
 		if err == nil {
 			err = e
 		}
-		if c.readLines == id {
+		if c.readLines >= id {
 			return err
 		}
 	}
@@ -158,13 +159,16 @@ func (c *Conn) ReadFrom(r io.Reader) (n int64, err error) {
 	default:
 	}
 
-	scanner := bufio.NewScanner(r)
-	scanner.Split(splitLinesKeepN)
+	select {
+	case <-c.resetCh:
+		// ignore
+	default:
+	}
 
+	scanner := bufio.NewScanner(r)
 	lastID := c.wroteLines
 	for scanner.Scan() {
-		lastID, err = c.writeLine(scanner.Bytes())
-		scanner.Bytes()
+		lastID, err = c.writeLine([]byte(strings.TrimSpace(scanner.Text()) + "\n"))
 		if err != nil {
 			return n, err
 		}
@@ -176,9 +180,6 @@ func (c *Conn) ReadFrom(r io.Reader) (n int64, err error) {
 
 // Write will return after all lines have been sent and executed.
 func (c *Conn) Write(p []byte) (int, error) {
-	c.wMx.Lock()
-	defer c.wMx.Unlock()
-
 	n, err := c.ReadFrom(bytes.NewBuffer(p))
 	return int(n), err
 }
@@ -197,6 +198,23 @@ func (c *Conn) WriteByte(p byte) (err error) {
 	_, err = c.rw.Write([]byte{p})
 	c.mx.Unlock()
 	return err
+}
+
+func (c *Conn) ResetAndWait() error {
+	c.wMx.Lock()
+	defer c.wMx.Unlock()
+
+	err := c.WriteByte(0x18)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case <-c.closeCh:
+		return io.ErrClosedPipe
+	case <-c.resetCh:
+		return nil
+	}
 }
 
 // Read will read the next line from the device.
@@ -218,29 +236,31 @@ func (c *Conn) Read(p []byte) (n int, err error) {
 	if !c.scan.Scan() {
 		return 0, c.scan.Err()
 	}
-	data := c.scan.Bytes()
+	data := c.scan.Text()
 
-	if bytes.Equal(data, []byte("ok")) {
+	if data == "ok" {
 		select {
 		case c.ackCh <- nil:
 		case <-c.closeCh:
 			return n, io.ErrClosedPipe
 		}
-	} else if bytes.HasPrefix(data, []byte("error:")) {
+	} else if strings.HasPrefix(data, "error:") {
 		select {
 		case c.ackCh <- errors.New(strings.TrimSpace(string(data))):
 		case <-c.closeCh:
 			return n, io.ErrClosedPipe
 		}
-	} else if bytes.HasPrefix(data, []byte("Grbl")) {
+	} else if strings.HasPrefix(data, "Grbl") {
 		select {
 		case c.resetCh <- struct{}{}:
 		default:
 		}
 	}
 
+	data += "\n"
+
 	if len(p) < len(data) {
-		c.readBuf = data
+		c.readBuf = []byte(data)
 		return 0, io.ErrShortBuffer
 	}
 

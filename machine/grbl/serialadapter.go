@@ -75,6 +75,9 @@ func (adapter *SerialAdapter) loop() {
 			adapter.probes = nil
 		case adapter.getProbes <- adapter.probes:
 		case data := <-adapter.data:
+			if len(data) == 0 {
+				continue
+			}
 			if data[0] == '<' {
 				stat, err := parseStatus(adapter.last, data)
 				if err != nil {
