@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/mastercactapus/gcnc/machine"
 )
 
 func (a *api) toolChange(w http.ResponseWriter, req *http.Request) {
@@ -17,7 +19,7 @@ func (a *api) toolChange(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	var opt ToolChangeOptions
+	var opt machine.ToolChangeOptions
 	err = json.Unmarshal(data, &opt)
 	if err != nil {
 		http.Error(w, err.Error(), 400)

@@ -12,18 +12,21 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mastercactapus/gcnc/machine"
+
 	sse "github.com/alexandrevicenzi/go-sse"
+	"github.com/jasonwbarnett/fileserver"
 	"github.com/mastercactapus/gcnc/coord"
 )
 
 type api struct {
 	http.Handler
-	m       Machine
+	m       *machine.Machine
 	dataDir string
 	sse     *sse.Server
 }
 
-func newAPI(m Machine, dir string) *api {
+func newAPI(m *machine.Machine, dir string) *api {
 	mux := http.NewServeMux()
 
 	a := &api{
@@ -35,7 +38,7 @@ func newAPI(m Machine, dir string) *api {
 		}),
 	}
 
-	fs := http.FileServer(http.Dir(dir))
+	fs := fileserver.New(http.Dir(dir))
 	mux.Handle("/data/", http.StripPrefix("/data", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case "GET":
@@ -169,16 +172,16 @@ func (a *api) probe(w http.ResponseWriter, req *http.Request) {
 	var res interface{}
 	grid := req.URL.Query().Get("grid") == "1"
 	if grid {
-		var opt GridOptions
+		var opt machine.ProbeGridOptions
 		err = json.Unmarshal(data, &opt)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		res, err = a.m.ProbeGrid(opt)
+		res, err = a.m.ProbeZGrid(opt)
 	} else {
-		var opt ProbeOptions
+		var opt machine.ProbeOptions
 		err = json.Unmarshal(data, &opt)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
